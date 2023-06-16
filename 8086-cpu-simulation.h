@@ -9,3 +9,6 @@ typedef int s32;
 typedef long long s64;
 
 typedef s32 b32;
+
+#define INVALID_BIT_POSITION -1
+#define MAX_BITS_IN_BYTE 7
