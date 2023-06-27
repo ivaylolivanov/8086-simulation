@@ -8,39 +8,6 @@
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
-const char* NON_WIDE_REGISTERS[8] = {
-    "al\0",
-    "cl\0",
-    "dl\0",
-    "bl\0",
-    "ah\0",
-    "ch\0",
-    "dh\0",
-    "bh\0"
-};
-
-const char* WIDE_REGISTERS[8] = {
-    "ax\0",
-    "cx\0",
-    "dx\0",
-    "bx\0",
-    "sp\0",
-    "bp\0",
-    "si\0",
-    "di\0"
-};
-
-const char* RM_EFFECTIVE_ADDRESS_CALCULATION[8] ={
-    "bx + si\0",
-    "bx + di\0",
-    "bp + si\0",
-    "bp + di\0",
-    "si\0",
-    "di\0",
-    "bp\0",
-    "bx\0"
-};
-
 static u32 LoadMemoryFromFile(char* filename, u8* memory)
 {
     u32 result = 0;
@@ -83,6 +50,8 @@ enum InstructionOpcodes : u8
 {
     // sizeof(d) = 1 bit, sizeof(w) = 1 bit, sizeof(reg) = 3 bit
 
+    // Bit index                        7 6 5 4 3 2 1 0
+    //
     MOV_REG_MEMTO_OR_FROMREG = 0x22, // 1 0 0 0 1 0 d w
     MOV_IMM_TO_RM            = 0x63, // 1 1 0 0 0 1 1 w
     MOV_IMM_TO_REG           = 0xB,  // 1 0 1 1 w  reg
@@ -91,6 +60,30 @@ enum InstructionOpcodes : u8
     MOV_RM_TO_SEG_REG        = 0x8E, // 1 0 0 0 1 1 1 0
     MOV_SEG_REG_TO_RM        = 0x8E, // 1 0 0 0 1 1 0 0
 };
+
+inline static u32 StringTerminationPosition(const s8* string)
+{
+    u32 position = 0;
+    while(string[position] != '\0')
+        ++position;
+
+    return position;
+}
+
+inline static void Append(s8* destination, const s8* content, u32 max)
+{
+    u32 currentPosition = StringTerminationPosition(destination);
+    if (currentPosition >= max) return;
+
+    u32 contentSymbols = StringTerminationPosition(content);
+    if ((currentPosition + contentSymbols) >= max) return;
+
+    u32 currentContentSymbol = 0;
+    while (content[currentContentSymbol] != '\0')
+        destination[currentPosition++] = content[currentContentSymbol++];
+
+    destination[currentPosition] = '\0';
+}
 
 inline static bool ContainsOpCode(u8 byte, InstructionOpcodes opcode)
 {
@@ -111,20 +104,57 @@ inline static bool ContainsOpCode(u8 byte, InstructionOpcodes opcode)
     return result;
 }
 
-static s8 LeftmostSetBitPosition(u8 data)
+static void MovRegToRegOrMemOrFromReg(u8* memory, u32& memoryIndex)
 {
-    s8 position = INVALID_BIT_POSITION;
+    bool direction       = memory[memoryIndex] & 2;
+    bool isWordOperation = memory[memoryIndex] & 1;
 
-    u8 currentPosition = 0;
-    while (currentPosition <= MAX_BITS_IN_BYTE)
+    ++memoryIndex;
+    u8 modRegRm = memory[memoryIndex];
+
+    u8 mod = (modRegRm >> 6) & 3;
+    u8 reg = (modRegRm >> 3) & 7;
+    u8 rm  =  modRegRm       & 7;
+
+    s16 displacement = 0;
+    bool hasDisplacement = (mod == 0 && rm == 6) || (mod == 2) || (mod == 1);
+    if (hasDisplacement)
     {
-        if ((data >> currentPosition) & 1)
-            position = currentPosition;
+        ++memoryIndex;
+        displacement = memory[memoryIndex];
 
-        ++currentPosition;
+        if ((mod == 0 && rm == 6) || mod == 2)
+        {
+            ++memoryIndex;
+            displacement = (memory[memoryIndex] << 8) | displacement;
+        }
     }
 
-    return position;
+    s8 destination[MAX_INSTRUCTION_STRING_LENGTH];
+    strcpy(destination,isWordOperation ?
+        WORD_REGISTERS[direction ? reg : rm]
+           : BYTE_REGISTERS[direction ? reg : rm]);
+
+    s8 source[MAX_INSTRUCTION_STRING_LENGTH];
+    strcpy(source, isWordOperation ?
+           WORD_REGISTERS[direction ? rm : reg]
+           : BYTE_REGISTERS[direction ? rm : reg]);
+
+    // Memory mode, no displacement. EXCEPT when R/M is 0110 (6), then
+    // 16-bit displacement.
+    //
+    // If (direction)  -> destination is REG
+    // If (!direction) -> destination is RM
+    if (!mod || (mod == 1) || (mod == 2))
+    {
+        snprintf(
+            direction ? source : destination,
+            MAX_INSTRUCTION_STRING_LENGTH,
+            displacement ? "[%s + %d]" : "[%s]",
+            RM_EFFECTIVE_ADDRESS_CALCULATION[rm], displacement);
+    }
+
+    printf ("mov %s, %s\n", destination, source);
 }
 
 static void Disassembly(u32 bytesCount, u8* mainMemory)
@@ -134,141 +164,7 @@ static void Disassembly(u32 bytesCount, u8* mainMemory)
     {
         u8 opcodeInstruction = mainMemory[byteIndex];
         if (ContainsOpCode(opcodeInstruction, MOV_REG_MEMTO_OR_FROMREG))
-        {
-            bool d = opcodeInstruction & 2;
-            bool w = opcodeInstruction & 1;
-
-            ++byteIndex;
-            u8 modRegRm = mainMemory[byteIndex];
-
-            u8 mod = (modRegRm >> 6) & 3;
-            u8 reg = (modRegRm >> 3) & 7;
-            u8 rm  =  modRegRm       & 7;
-
-            if (!d)
-            {
-                u8 temp = reg;
-                reg = rm;
-                rm = temp;
-            }
-
-            switch (mod)
-            {
-                // Memory mode, no displacement. EXCEPT when R/M is
-                // 110, then 16-bit displacement
-                case 0:
-                {
-                    if (rm != 6)
-                    {
-                        if (w)
-                            printf("mov [%s], %s\n", RM_EFFECTIVE_ADDRESS_CALCULATION[reg], WIDE_REGISTERS[rm]);
-                        else
-                            printf("mov [%s], %s\n", RM_EFFECTIVE_ADDRESS_CALCULATION[reg], NON_WIDE_REGISTERS[rm]);
-                    }
-                    else
-                    {
-                        s16 displacement = (mainMemory[byteIndex + 2] << 8) | mainMemory[byteIndex + 1];
-                        byteIndex += 2;
-
-                        if (w)
-                            printf("mov %s, %d\n",
-                                   WIDE_REGISTERS[reg],
-                                   displacement);
-                        else
-                            printf("mov %s, %d\n",
-                                   NON_WIDE_REGISTERS[reg],
-                                   displacement);
-                    }
-                } break;
-
-                // Memory mode, 8-bit displacement.
-                case 1:
-                {
-                    ++byteIndex;
-                    s8 displacement = mainMemory[byteIndex];
-                    if (w)
-                    {
-                        if (displacement)
-                            printf("mov %s, [%s + %d]\n",
-                                   WIDE_REGISTERS[reg],
-                                   RM_EFFECTIVE_ADDRESS_CALCULATION[rm],
-                                   displacement);
-                        else
-                            printf("mov %s, [%s]\n",
-                                   WIDE_REGISTERS[reg],
-                                   RM_EFFECTIVE_ADDRESS_CALCULATION[rm]);
-                    }
-                    else
-                    {
-                        if (d)
-                        {
-                            if (displacement)
-                                printf("mov %s, [%s + %d]\n",
-                                       NON_WIDE_REGISTERS[reg],
-                                       RM_EFFECTIVE_ADDRESS_CALCULATION[rm],
-                                       displacement);
-                            else
-                                printf("mov %s, [%s]\n",
-                                       WIDE_REGISTERS[reg],
-                                       RM_EFFECTIVE_ADDRESS_CALCULATION[rm]);
-                        }
-                        else
-                        {
-                            if (displacement)
-                                printf("mov [%s + %d], %s\n",
-                                       RM_EFFECTIVE_ADDRESS_CALCULATION[reg],
-                                       displacement,
-                                       NON_WIDE_REGISTERS[rm]);
-                            else
-                                printf("mov [%s], %s\n",
-                                       RM_EFFECTIVE_ADDRESS_CALCULATION[reg],
-                                       NON_WIDE_REGISTERS[rm]);
-                        }
-                    }
-                } break;
-
-                // Memory mode, 16-bit displacement.
-                case 2:
-                {
-                    s16 displacement = (mainMemory[byteIndex + 2] << 8) | mainMemory[byteIndex + 1];
-
-                    if (w)
-                    {
-                        if (displacement)
-                            printf("mov %s, [%s + %d]\n",
-                                   WIDE_REGISTERS[reg],
-                                   RM_EFFECTIVE_ADDRESS_CALCULATION[rm],
-                                   displacement);
-                        else
-                            printf("mov %s, [%s]\n",
-                                   WIDE_REGISTERS[reg],
-                                   RM_EFFECTIVE_ADDRESS_CALCULATION[rm]);
-                    }
-                    else
-                    {
-                        if (displacement)
-                            printf("mov %s, [%s + %d]\n",
-                                   NON_WIDE_REGISTERS[reg],
-                                   RM_EFFECTIVE_ADDRESS_CALCULATION[rm],
-                                   displacement);
-                        else
-                            printf("mov %s, [%s]\n",
-                                   NON_WIDE_REGISTERS[reg],
-                                   RM_EFFECTIVE_ADDRESS_CALCULATION[rm]);
-                    }
-
-                } break;
-
-                // Register mode, no displacement
-                case 3:
-                {
-                    if (w)
-                        printf("mov %s, %s\n", WIDE_REGISTERS[reg], WIDE_REGISTERS[rm]);
-                    else
-                        printf("mov %s, %s\n", NON_WIDE_REGISTERS[reg], NON_WIDE_REGISTERS[rm]);
-                } break;
-            }
-        }
+            MovRegToRegOrMemOrFromReg(mainMemory, byteIndex);
         else if (ContainsOpCode(opcodeInstruction, MOV_IMM_TO_REG))
         {
             bool w = opcodeInstruction >>3 & 1;
@@ -276,14 +172,14 @@ static void Disassembly(u32 bytesCount, u8* mainMemory)
             if (w)
             {
                 s16 data = (mainMemory[byteIndex + 2] << 8) | mainMemory[byteIndex + 1];
-                printf("mov %s, %d\n", WIDE_REGISTERS[reg], data);
+                printf("mov %s, %d\n", WORD_REGISTERS[reg], data);
                 ++byteIndex;
                 // byteIndex += 2;
             }
             else
             {
                 s8 data = mainMemory[byteIndex + 1];
-                printf("mov %s, %d\n", NON_WIDE_REGISTERS[reg], data);
+                printf("mov %s, %d\n", BYTE_REGISTERS[reg], data);
                 // ++byteIndex;
             }
         }
