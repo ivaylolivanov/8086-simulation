@@ -157,6 +157,28 @@ static void MovRegToRegOrMemOrFromReg(u8* memory, u32& memoryIndex)
     printf ("mov %s, %s\n", destination, source);
 }
 
+static void MovImmediatelyToRegister(u8* memory, u32& memoryIndex)
+{
+    bool isWordOperation = (memory[memoryIndex] >> 3) & 1;
+    u8 reg = memory[memoryIndex] & 7;
+
+    ++memoryIndex;
+
+    const s8* destination = BYTE_REGISTERS[reg];
+    s8 value[MAX_INSTRUCTION_STRING_LENGTH];
+    snprintf(value, MAX_INSTRUCTION_STRING_LENGTH, "%d", (s8)memory[memoryIndex]);
+
+    if (isWordOperation)
+    {
+        destination = WORD_REGISTERS[reg];
+        ++memoryIndex;
+        s16 data = (memory[memoryIndex] << 8) | memory[memoryIndex - 1];
+        snprintf(value, MAX_INSTRUCTION_STRING_LENGTH, "%d", data);
+    }
+
+    printf("mov %s, %s\n", destination, value);
+}
+
 static void Disassembly(u32 bytesCount, u8* mainMemory)
 {
     u32 byteIndex = 0;
@@ -166,23 +188,7 @@ static void Disassembly(u32 bytesCount, u8* mainMemory)
         if (ContainsOpCode(opcodeInstruction, MOV_REG_MEMTO_OR_FROMREG))
             MovRegToRegOrMemOrFromReg(mainMemory, byteIndex);
         else if (ContainsOpCode(opcodeInstruction, MOV_IMM_TO_REG))
-        {
-            bool w = opcodeInstruction >>3 & 1;
-            u8 reg = opcodeInstruction & 7;
-            if (w)
-            {
-                s16 data = (mainMemory[byteIndex + 2] << 8) | mainMemory[byteIndex + 1];
-                printf("mov %s, %d\n", WORD_REGISTERS[reg], data);
-                ++byteIndex;
-                // byteIndex += 2;
-            }
-            else
-            {
-                s8 data = mainMemory[byteIndex + 1];
-                printf("mov %s, %d\n", BYTE_REGISTERS[reg], data);
-                // ++byteIndex;
-            }
-        }
+            MovImmediatelyToRegister(mainMemory, byteIndex);
 
         ++byteIndex;
     }
