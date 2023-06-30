@@ -154,7 +154,7 @@ static void MovRegToRegOrMemOrFromReg(u8* memory, u32& memoryIndex)
             RM_EFFECTIVE_ADDRESS_CALCULATION[rm], displacement);
     }
 
-    printf ("mov %s, %s\n", destination, source);
+    printf("mov %s, %s\n", destination, source);
 }
 
 static void MovImmediatelyToRegister(u8* memory, u32& memoryIndex)
