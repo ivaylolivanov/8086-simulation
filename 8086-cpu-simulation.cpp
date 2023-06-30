@@ -190,6 +190,7 @@ static void Disassembly(u32 bytesCount, u8* mainMemory)
         else if (ContainsOpCode(opcodeInstruction, MOV_IMM_TO_REG))
             MovImmediatelyToRegister(mainMemory, byteIndex);
 
+        // Move to next instruction
         ++byteIndex;
     }
 }
