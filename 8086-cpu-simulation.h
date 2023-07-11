@@ -37,6 +37,13 @@ const s8* WORD_REGISTERS[8] = {
     "di\0"
 };
 
+const s8* SEGMENTED_REGISTERS[4] = {
+    "es\0",
+    "cs\0",
+    "ss\0",
+    "ds\0",
+};
+
 const s8* RM_EFFECTIVE_ADDRESS_CALCULATION[8] ={
     "bx + si\0",
     "bx + di\0",
