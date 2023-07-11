@@ -120,17 +120,17 @@ static void MovRegToRegOrMemOrFromReg(u8* memory, u32& memoryIndex)
     if (hasDisplacement)
     {
         ++memoryIndex;
-        displacement = memory[memoryIndex];
+        displacement = (s8)memory[memoryIndex];
 
         if ((mod == 0 && rm == 6) || mod == 2)
         {
             ++memoryIndex;
-            displacement = (memory[memoryIndex] << 8) | displacement;
+            displacement = (memory[memoryIndex] << 8) | memory[memoryIndex - 1];
         }
     }
 
     s8 destination[MAX_INSTRUCTION_STRING_LENGTH];
-    strcpy(destination,isWordOperation ?
+    strcpy(destination, isWordOperation ?
         WORD_REGISTERS[direction ? reg : rm]
            : BYTE_REGISTERS[direction ? reg : rm]);
 
@@ -139,11 +139,26 @@ static void MovRegToRegOrMemOrFromReg(u8* memory, u32& memoryIndex)
            WORD_REGISTERS[direction ? rm : reg]
            : BYTE_REGISTERS[direction ? rm : reg]);
 
-    // Memory mode, no displacement. EXCEPT when R/M is 0110 (6), then
-    // 16-bit displacement.
+    // When Mod is 0, then Memory mode, no displacement. EXCEPT when
+    // R/M is 0110 (6), then 16-bit displacement.
     //
     // If (direction)  -> destination is REG
     // If (!direction) -> destination is RM
+    if (!mod && (rm == 6))
+        snprintf(
+            direction ? source : destination,
+            MAX_INSTRUCTION_STRING_LENGTH,
+            "[%d]",
+            displacement);
+    else if ((mod == 1) || (mod == 2))
+        snprintf(
+            direction ? source : destination,
+            MAX_INSTRUCTION_STRING_LENGTH,
+            displacement ? displacement > 0 ? "[%s + %d]" : "[%s %d]" : "[%s]",
+            RM_EFFECTIVE_ADDRESS_CALCULATION[rm], displacement);
+
+    printf("mov %s, %s\n", destination, source);
+}
     if (!mod || (mod == 1) || (mod == 2))
     {
         snprintf(
