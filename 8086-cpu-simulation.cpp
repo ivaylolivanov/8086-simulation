@@ -360,8 +360,18 @@ static void Disassembly(u32 bytesCount, u8* mainMemory)
         u8 opcodeInstruction = mainMemory[byteIndex];
         if (ContainsOpCode(opcodeInstruction, MOV_REG_MEMTO_OR_FROMREG))
             MovRegToRegOrMemOrFromReg(mainMemory, byteIndex);
+        else if (ContainsOpCode(opcodeInstruction, MOV_IMM_TO_RM))
+            MovImmediatelyToRegOrMem(mainMemory, byteIndex);
         else if (ContainsOpCode(opcodeInstruction, MOV_IMM_TO_REG))
             MovImmediatelyToRegister(mainMemory, byteIndex);
+        else if (ContainsOpCode(opcodeInstruction, MOV_MEM_TO_ACC))
+            MovMemToAcc(mainMemory, byteIndex);
+        else if (ContainsOpCode(opcodeInstruction, MOV_ACC_TO_MEM))
+            MovAccToMem(mainMemory, byteIndex);
+        else if (ContainsOpCode(opcodeInstruction, MOV_RM_TO_SEG_REG))
+            MovRmToSr(mainMemory, byteIndex);
+        else if (ContainsOpCode(opcodeInstruction, MOV_SEG_REG_TO_RM))
+            MovSrToRm(mainMemory, byteIndex);
 
         // Move to next instruction
         ++byteIndex;
