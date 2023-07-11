@@ -89,10 +89,9 @@ inline static bool ContainsOpCode(u8 byte, InstructionOpcodes opcode)
 {
     bool result = false;
 
-    u8 mask = (1 << sizeof(opcode) * 8) - 1;
     while (byte != 0)
     {
-        if ((mask & byte) == opcode)
+        if (byte == opcode)
         {
             result = true;
             break;
