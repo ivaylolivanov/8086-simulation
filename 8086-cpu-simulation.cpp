@@ -257,6 +257,52 @@ static void MovAccToMem(u8* memory, u32& memoryIndex)
     printf("mov [%d], ax\n", address);
 }
 
+static void MovRmToSr(u8* memory, u32& memoryIndex)
+{
+    printf ("WARNING: NOT TESTED - Register / memory to segmented register\n");
+
+    ++memoryIndex;
+    u8 modSrRm = memory[memoryIndex];
+
+    u8 mod = (modSrRm >> 6) & 3;
+    u8 sr  = (modSrRm >> 3) & 3;
+    u8 rm  =  modSrRm       & 7;
+
+    s16 displacement = 0;
+    bool hasDisplacement = (mod == 0 && rm == 6) || (mod == 2) || (mod == 1);
+    if (hasDisplacement)
+    {
+        ++memoryIndex;
+        displacement = (s8)memory[memoryIndex];
+
+        if ((mod == 0 && rm == 6) || mod == 2)
+        {
+            ++memoryIndex;
+            displacement = (memory[memoryIndex] << 8) | memory[memoryIndex - 1];
+        }
+    }
+
+    s8 destination[MAX_INSTRUCTION_STRING_LENGTH];
+    strcpy(destination, SEGMENTED_REGISTERS[sr]);
+
+    s8 source[MAX_INSTRUCTION_STRING_LENGTH];
+    strcpy(source, BYTE_REGISTERS[rm]);
+
+    if (!mod && (rm == 6))
+        snprintf(
+            source,
+            MAX_INSTRUCTION_STRING_LENGTH,
+            "[%d]",
+            displacement);
+    else if ((mod == 1) || (mod == 2))
+        snprintf(
+            source,
+            MAX_INSTRUCTION_STRING_LENGTH,
+            displacement ? displacement > 0 ? "[%s + %d]" : "[%s %d]" : "[%s]",
+            RM_EFFECTIVE_ADDRESS_CALCULATION[rm], displacement);
+
+    printf ("mov %s, %s\n", destination, source);
+}
 static void Disassembly(u32 bytesCount, u8* mainMemory)
 {
     u32 byteIndex = 0;
