@@ -247,6 +247,16 @@ static void MovMemToAcc(u8* memory, u32& memoryIndex)
     printf("mov ax, [%d]\n", address);
 }
 
+static void MovAccToMem(u8* memory, u32& memoryIndex)
+{
+    bool isWordOperation = (memory[memoryIndex] >> 3) & 1;
+
+    memoryIndex += 2;
+    s16 address = (memory[memoryIndex] << 8) | memory[memoryIndex - 1];
+
+    printf("mov [%d], ax\n", address);
+}
+
 static void Disassembly(u32 bytesCount, u8* mainMemory)
 {
     u32 byteIndex = 0;
