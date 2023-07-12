@@ -46,21 +46,6 @@ static u8* AllocateMemoryPow2(u32 sizePow2)
     return memory;
 }
 
-enum InstructionOpcodes : u8
-{
-    // sizeof(d) = 1 bit, sizeof(w) = 1 bit, sizeof(reg) = 3 bit
-
-    // Bit index                        7 6 5 4 3 2 1 0
-    //
-    MOV_REG_MEMTO_OR_FROMREG = 0x22, // 1 0 0 0 1 0 d w
-    MOV_IMM_TO_RM            = 0x63, // 1 1 0 0 0 1 1 w
-    MOV_IMM_TO_REG           = 0xB,  // 1 0 1 1 w  reg
-    MOV_MEM_TO_ACC           = 0x50, // 1 0 1 0 0 0 0 w
-    MOV_ACC_TO_MEM           = 0x51, // 1 0 1 0 0 0 1 w
-    MOV_RM_TO_SEG_REG        = 0x8E, // 1 0 0 0 1 1 1 0
-    MOV_SEG_REG_TO_RM        = 0x8E, // 1 0 0 0 1 1 0 0
-};
-
 inline static u32 StringTerminationPosition(const s8* string)
 {
     u32 position = 0;
