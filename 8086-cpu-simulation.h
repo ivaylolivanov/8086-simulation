@@ -72,4 +72,11 @@ enum InstructionOpcodes : u8
     MOV_ACC_TO_MEM           = 0x51, // 1 0 1 0 0 0 1 w
     MOV_RM_TO_SEG_REG        = 0x8E, // 1 0 0 0 1 1 1 0
     MOV_SEG_REG_TO_RM        = 0x8E, // 1 0 0 0 1 1 0 0
+
+    // Bit index                        7 6 5 4 3 2 1 0
+    //
+    // ADD opcodes
+    ADD_RM_W_REG_TO_EITHER   = 0x0,  // 0 0 0 0 0 0 d w
+    ADD_IMM_TO_REG           = 0x20, // 1 0 0 0 0 0 s w
+    ADD_IMM_TO_ACC           = 0x2,  // 0 0 0 0 0 1 0 w
 };
