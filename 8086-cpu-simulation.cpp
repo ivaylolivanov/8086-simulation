@@ -372,6 +372,8 @@ static void Disassembly(u32 bytesCount, u8* mainMemory)
             MovRmToSr(mainMemory, byteIndex);
         else if (ContainsOpCode(opcodeInstruction, MOV_SEG_REG_TO_RM))
             MovSrToRm(mainMemory, byteIndex);
+        else
+            printf("WARNING: Unidentified instruction: %d\n", opcodeInstruction);
 
         // Move to next instruction
         ++byteIndex;
