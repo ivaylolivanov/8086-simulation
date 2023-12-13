@@ -337,6 +337,59 @@ static void MovSrToRm(u8* memory, u32& memoryIndex)
     printf ("mov %s, %s\n", destination, source);
 }
 
+static void AddRmWRegToEither(u8* memory, u32& memoryIndex)
+{
+    bool direction       = memory[memoryIndex] & 2;
+    bool isWordOperation = memory[memoryIndex] & 1;
+
+    ++memoryIndex;
+    u8 modRegRm = memory[memoryIndex];
+
+    u8 mod = (modRegRm >> 6) & 3;
+    u8 reg = (modRegRm >> 3) & 7;
+    u8 rm  = modRegRm        & 7;
+
+    s16 displacement = 0;
+    bool hasDisplacement = (mod == 0 && rm == 6) || (mod == 2) || (mod == 1);
+    if (hasDisplacement)
+    {
+        ++memoryIndex;
+        displacement = (s8)memory[memoryIndex];
+
+        if ((mod == 0 && rm == 6) || mod == 2)
+        {
+            ++memoryIndex;
+            displacement = (memory[memoryIndex] << 8) | memory[memoryIndex - 1];
+        }
+    }
+
+    s8 destination[MAX_INSTRUCTION_STRING_LENGTH];
+    strcpy(destination, isWordOperation ?
+           WORD_REGISTERS[direction ? reg : rm]
+           : BYTE_REGISTERS[direction ? reg : rm]);
+
+    s8 source[MAX_INSTRUCTION_STRING_LENGTH];
+    strcpy(source, isWordOperation ?
+           WORD_REGISTERS[direction ? rm : reg]
+           : BYTE_REGISTERS[direction ? rm : reg]);
+
+    if (!mod && (rm == 6))
+        snprintf(
+            direction ? source : destination,
+            MAX_INSTRUCTION_STRING_LENGTH,
+            "[%d]",
+            displacement);
+    else if ((mod == 1) || (mod == 2))
+        snprintf(
+            direction ? source : destination,
+            MAX_INSTRUCTION_STRING_LENGTH,
+            displacement ? displacement > 0 ? "[%s + %d]" : "[%s %d]" : "[%s]",
+            RM_EFFECTIVE_ADDRESS_CALCULATION[rm],
+            displacement);
+
+    printf("add %s, %s\n", destination, source);
+}
+
 static void Disassembly(u32 bytesCount, u8* mainMemory)
 {
     u32 byteIndex = 0;
@@ -357,8 +410,10 @@ static void Disassembly(u32 bytesCount, u8* mainMemory)
             MovRmToSr(mainMemory, byteIndex);
         else if (ContainsOpCode(opcodeInstruction, MOV_SEG_REG_TO_RM))
             MovSrToRm(mainMemory, byteIndex);
-        else
-            printf("WARNING: Unidentified instruction: %d\n", opcodeInstruction);
+        else if (ContainsOpCode(opcodeInstruction, ADD_RM_W_REG_TO_EITHER))
+            AddRmWRegToEither(mainMemory, byteIndex);
+        // else
+        //     printf("WARNING: Unidentified instruction: %d\n", opcodeInstruction);
 
         // Move to next instruction
         ++byteIndex;
